@@ -7,3 +7,6 @@ Automatic ADCS pwner
 
 ### ESC4  
 ![ESC4](.images/ESC4.png)
+
+### ESC7  
+![ESC7](.images/ESC7.png)
