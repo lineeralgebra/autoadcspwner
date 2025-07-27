@@ -8,6 +8,9 @@ Automatic ADCS pwner
 ### ESC1 when Enrollement on Domain Computers
 ![ESC1](.images/ESC1-compter.png)
 
+### ESC1 when Enrollement on Authenticated Users
+![ESC1](.images/ESC1-authuser.png)
+
 ### ESC4  
 ![ESC4](.images/ESC4.png)
 
