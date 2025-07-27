@@ -6,6 +6,7 @@ def parse_stdout_output(stdout_text):
     current_template = None
     vuln_type = None
     is_in_ca_section = False
+    is_in_template_section = False
 
     for line in lines:
         line = line.strip()
@@ -13,22 +14,25 @@ def parse_stdout_output(stdout_text):
         if line.startswith("CA Name"):
             current_ca = line.split(":", 1)[1].strip()
             is_in_ca_section = True
-            current_template = None  # Reset template context
+            is_in_template_section = False
+            current_template = None
 
-        if line.startswith("Template Name"):
+        elif line.startswith("Template Name"):
             current_template = line.split(":", 1)[1].strip()
-            is_in_ca_section = False  # Now we're in a template section
+            is_in_ca_section = False
+            is_in_template_section = True
 
-        if "[!] Vulnerabilities" in line:
-            vuln_type = None  # Reset for new block
+        elif "[!] Vulnerabilities" in line:
+            vuln_type = None
 
-        if line.startswith("ESC1"):
+        elif line.startswith("ESC1"):
             vuln_type = "ESC1"
         elif line.startswith("ESC4"):
             vuln_type = "ESC4"
         elif line.startswith("ESC7"):
             vuln_type = "ESC7"
 
+        # Only add ESC7 if we're in CA section and it's actually ESC7
         if vuln_type == "ESC7" and current_ca and is_in_ca_section:
             results.append({
                 "ca_name": current_ca,
@@ -37,7 +41,8 @@ def parse_stdout_output(stdout_text):
             })
             vuln_type = None
 
-        if current_ca and current_template and vuln_type and not is_in_ca_section:
+        # Only add template vulnerabilities if we're in template section
+        elif current_ca and current_template and vuln_type and is_in_template_section:
             results.append({
                 "ca_name": current_ca,
                 "template_name": current_template,
