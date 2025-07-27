@@ -31,6 +31,8 @@ def parse_stdout_output(stdout_text):
             vuln_type = "ESC4"
         elif line.startswith("ESC7"):
             vuln_type = "ESC7"
+        elif line.startswith("ESC9"):
+            vuln_type = "ESC9"
 
         # Only add ESC7 if we're in CA section and it's actually ESC7
         if vuln_type == "ESC7" and current_ca and is_in_ca_section:
