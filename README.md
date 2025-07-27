@@ -20,6 +20,6 @@ Automatic ADCS pwner
 
 ### ESC16
 Request Part
-![ESC16-1](.images/ESC16-1.png)
+![ESC16-1](.images/esc16-1.png)
 Update part
-![ESC16-2](.images/ESC16-2.png)
+![ESC16-2](.images/esc16-2.png)
