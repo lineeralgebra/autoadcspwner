@@ -17,7 +17,7 @@ def parse_stdout_output(stdout_text):
             is_in_ca_section = True
             is_in_template_section = False
             current_template = None
-            disabled_extensions = []  # Reset for new CA
+            disabled_extensions = []
 
         elif line.startswith("Template Name"):
             current_template = line.split(":", 1)[1].strip()
@@ -43,7 +43,6 @@ def parse_stdout_output(stdout_text):
         elif line.startswith("ESC16"):
             vuln_type = "ESC16"
 
-        # Only add CA vulnerabilities in CA section
         if current_ca and is_in_ca_section and vuln_type in ["ESC7", "ESC16"]:
             results.append({
                 "ca_name": current_ca,
@@ -52,7 +51,6 @@ def parse_stdout_output(stdout_text):
             })
             vuln_type = None
 
-        # Only add template vulnerabilities in template section
         elif current_ca and current_template and vuln_type and is_in_template_section:
             results.append({
                 "ca_name": current_ca,
